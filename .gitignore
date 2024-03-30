@@ -1,0 +1,11 @@
+dataset/**
+pic/**
+.idea/**
+__pycache__/**
+*.h5
+*.csv
+*.xyz
+data_voxel**
+*.pt
+*.t7
+*.ipynb
