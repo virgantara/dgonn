@@ -575,7 +575,7 @@ def visualize_point_cloud(point_cloud, actual_label, predicted_label):
     # Access the render option and adjust the point size
     render_option = vis.get_render_option()
     render_option.point_size = 10  # Set your desired point size here
-
+    render_option.show_coordinate_frame = True
     # Run the visualizer
     vis.run()
     vis.destroy_window()
@@ -598,14 +598,18 @@ with h5py.File('all_predictions.h5', 'r') as hf:
 for i, data in enumerate(all_points):
     # print(data.shape)
     # print(all_labels[i], all_predictions[i])
-    actual_label = all_labels[i][0]
-    predicted_label = all_predictions[i][0]
-    pts = data[0].T
-    print(pts.shape)
-    # predicted_label = predictions_extended[i]
-    # actual_label = all_labels[i]
+    batch_index = 0
+    actual_label = all_labels[i][batch_index]
+    predicted_label = all_predictions[i][batch_index]
+    print(list_labels[actual_label],list_labels[predicted_label])
+    
+    # print(data[0].shape)
+    
+    pts = data[batch_index].T
+    # print(pts.shape)
+
     visualize_point_cloud(pts, list_labels[actual_label], list_labels[predicted_label])
-    if i == 3:  # Adjust this value to display more or fewer point clouds
+    if i == 7:  # Adjust this value to display more or fewer point clouds
         break
 
 
