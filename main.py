@@ -2,6 +2,7 @@ from __future__ import print_function
 import os
 os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 
+import open3d as o3d
 import sys
 import copy
 import math
@@ -13,7 +14,7 @@ from torch._jit_internal import Optional
 from torch.nn.parameter import Parameter
 from torch.nn.modules.module import Module
 import collections
-
+import matplotlib.pyplot as plt
 import glob
 import h5py
 from torch.utils.data import Dataset
@@ -473,7 +474,7 @@ def test(dataset_name='human', model_name='pointnet'):
     all_predictions = []
     all_labels = []
     all_points = []  # Assuming your data includes point clouds
-
+    predictions = []
     for data, label in test_loader:
         data, label = data.to(device), label.to(device).squeeze()
         data = data.permute(0, 2, 1)
@@ -491,6 +492,8 @@ def test(dataset_name='human', model_name='pointnet'):
             all_points.append(data.cpu().numpy())
             all_predictions.append(preds.cpu().numpy())
             all_labels.append(label.cpu().numpy())
+
+            predictions.extend(preds.cpu().numpy())
     test_true = np.concatenate(test_true)
     test_pred = np.concatenate(test_pred)
     # test_acc = metrics.accuracy_score(test_true, test_pred)
@@ -518,11 +521,10 @@ def test(dataset_name='human', model_name='pointnet'):
 
     print(outstr)
     
-    return yt, yp, all_points, all_predictions, all_labels
+    return yt, yp, all_points, all_predictions, all_labels, predictions
 
 
-if torch.cuda.device_count() > 0:
-    torch.cuda.set_device(0)
+list_labels = ['bag','bin','box','cabinet','chair','desk','display','door','shelf','table','bed','pillow','sink','sofa','toilet']
 
 dataset_name = 'scanobject'
 model_name = 'dgcnn'
@@ -544,4 +546,116 @@ torch.cuda.empty_cache()
 #     model_name=model_name,
 #     dataset_name=dataset_name
 # )
-yt, yp, all_points, all_predictions, all_labels = test(dataset_name, model_name)
+# yt, yp, all_points, all_predictions, all_labels, predictions_extended = test(dataset_name, model_name)
+
+predictions_extended = []
+with h5py.File('predictions_extended.h5', 'r') as hf:
+    predictions_extended = hf['predictions_extended'][:]
+
+def visualize_point_cloud(point_cloud, actual_label, predicted_label):
+
+    
+
+    # Convert the point cloud to Open3D format
+    pcd = o3d.geometry.PointCloud()
+    pcd.points = o3d.utility.Vector3dVector(point_cloud)
+    
+    # Optionally, you can also color the point cloud
+    # pcd.colors = o3d.utility.Vector3dVector(np.random.uniform(0, 1, size=(point_cloud.shape[0], 3)))
+
+    # Visualize the point cloud
+    # o3d.visualization.draw_geometries([pcd], window_name=f"Label: {label}")
+
+    vis = o3d.visualization.Visualizer()
+    vis.create_window(window_name=f"Actual: {actual_label}, Predicted: {predicted_label}")
+
+    # Add the point cloud to the visualizer
+    vis.add_geometry(pcd)
+
+    # Access the render option and adjust the point size
+    render_option = vis.get_render_option()
+    render_option.point_size = 10  # Set your desired point size here
+
+    # Run the visualizer
+    vis.run()
+    vis.destroy_window()
+
+test_loader = DataLoader(ScanObjectNN_hardest(partition='test', num_points=1024), num_workers=2,
+                                 batch_size=8, shuffle=True, drop_last=False)
+
+all_labels = []
+with h5py.File('all_labels.h5', 'r') as hf:
+    all_labels = hf['all_labels'][:]
+
+all_points = []
+with h5py.File('all_points.h5', 'r') as hf:
+    all_points = hf['all_points'][:]
+
+all_predictions = []
+with h5py.File('all_predictions.h5', 'r') as hf:
+    all_predictions = hf['all_predictions'][:]
+
+for i, data in enumerate(all_points):
+    # print(data.shape)
+    # print(all_labels[i], all_predictions[i])
+    actual_label = all_labels[i][0]
+    predicted_label = all_predictions[i][0]
+    pts = data[0].T
+    print(pts.shape)
+    # predicted_label = predictions_extended[i]
+    # actual_label = all_labels[i]
+    visualize_point_cloud(pts, list_labels[actual_label], list_labels[predicted_label])
+    if i == 3:  # Adjust this value to display more or fewer point clouds
+        break
+
+
+
+# from sklearn.metrics import classification_report
+
+# print(classification_report(yt, yp))
+
+# with h5py.File('all_predictions.h5', 'w') as hf:
+#     hf.create_dataset("all_predictions",  data=all_predictions)
+
+# with h5py.File('predictions_extended.h5', 'w') as hf:
+#     hf.create_dataset("predictions_extended",  data=predictions_extended)
+
+# with h5py.File('all_labels.h5', 'w') as hf:
+#     hf.create_dataset("all_labels",  data=all_labels)
+
+# def visualize_predictions(points, labels, predictions, index=0):
+#     fig = plt.figure(figsize=(10, 5))
+    
+#     ax = fig.add_subplot(121, projection='3d')
+#     ax.scatter(points[index][:, 0], points[index][:, 1], points[index][:, 2], c='skyblue', s=15)
+#     ax.set_title(f'Actual: {labels[index]}')
+    
+#     ax = fig.add_subplot(122, projection='3d')
+#     ax.scatter(points[index][:, 0], points[index][:, 1], points[index][:, 2], c='salmon', s=15)
+#     ax.set_title(f'Predicted: {predictions[index]}')
+
+#     plt.show()
+
+# # Visualize the first point cloud and its prediction
+# visualize_predictions(all_points, all_labels, all_predictions, index=0)
+
+# index = 5
+# pts = all_points[index][0].T
+# # print(np.array(pts).shape)
+
+# pcd = o3d.geometry.PointCloud()
+# pcd.points = o3d.utility.Vector3dVector(pts)
+
+# vis = o3d.visualization.Visualizer()
+# vis.create_window()
+
+# # Add the point cloud to the visualizer
+# vis.add_geometry(pcd)
+
+# # Access the render option and adjust the point size
+# render_option = vis.get_render_option()
+# render_option.point_size = 10  # Set your desired point size here
+
+# # Run the visualizer
+# vis.run()
+# vis.destroy_window()
